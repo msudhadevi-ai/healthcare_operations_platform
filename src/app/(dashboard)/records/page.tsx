@@ -152,7 +152,7 @@ export default function RecordsPage() {
                   <div>
                     <label className="text-sm font-medium text-gray-700">Record Type</label>
                     <select value={uploadForm.recordType} onChange={e => setUploadForm({...uploadForm, recordType: e.target.value})}
-                      className="mt-1 flex h-9 w-full rounded-md border border-gray-200 bg-white px-3 py-1 text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500">
+                      className="mt-1 flex h-9 w-full rounded-md border border-gray-200 bg-white px-3 py-1 text-sm text-gray-900 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500">
                       {RECORD_TYPES.map(t => <option key={t} value={t}>{t.replace("_", " ")}</option>)}
                     </select>
                   </div>

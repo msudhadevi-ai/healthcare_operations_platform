@@ -231,7 +231,7 @@ export default function FrontDeskPage() {
               <div><label className="text-sm font-medium text-gray-700">Date of Birth *</label><Input type="date" value={newPatient.dateOfBirth} onChange={e => setNewPatient({...newPatient, dateOfBirth: e.target.value})} required className="mt-1" /></div>
               <div>
                 <label className="text-sm font-medium text-gray-700">Gender *</label>
-                <select value={newPatient.gender} onChange={e => setNewPatient({...newPatient, gender: e.target.value})} className="mt-1 flex h-9 w-full rounded-md border border-gray-200 bg-white px-3 py-1 text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500">
+                <select value={newPatient.gender} onChange={e => setNewPatient({...newPatient, gender: e.target.value})} className="mt-1 flex h-9 w-full rounded-md border border-gray-200 bg-white px-3 py-1 text-sm text-gray-900 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500">
                   <option value="MALE">Male</option>
                   <option value="FEMALE">Female</option>
                   <option value="OTHER">Other</option>

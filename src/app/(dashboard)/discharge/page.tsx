@@ -14,7 +14,7 @@ interface Visit {
   status: string;
 }
 
-const FIELD_STYLE = "mt-1 flex h-9 w-full rounded-md border border-gray-200 bg-white px-3 py-1 text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500";
+const FIELD_STYLE = "mt-1 flex h-9 w-full rounded-md border border-gray-200 bg-white px-3 py-1 text-sm text-gray-900 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500";
 
 export default function DischargePage() {
   const [visitSearch, setVisitSearch] = useState("");
