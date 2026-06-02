@@ -1,0 +1,39 @@
+version: "3.9"
+
+services:
+  # PostgreSQL — local dev database
+  postgres:
+    image: postgres:16-alpine
+    container_name: apthal_postgres
+    environment:
+      POSTGRES_USER: apthal
+      POSTGRES_PASSWORD: apthal_dev
+      POSTGRES_DB: apthal_db
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    restart: unless-stopped
+
+  # Next.js app (for running the full stack in Docker)
+  app:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: apthal_app
+    ports:
+      - "3000:3000"
+    environment:
+      DATABASE_URL: postgresql://apthal:apthal_dev@postgres:5432/apthal_db
+      JWT_SECRET: ${JWT_SECRET}
+      AWS_REGION: ${AWS_REGION}
+      AWS_ACCESS_KEY_ID: ${AWS_ACCESS_KEY_ID}
+      AWS_SECRET_ACCESS_KEY: ${AWS_SECRET_ACCESS_KEY}
+      AWS_S3_BUCKET: ${AWS_S3_BUCKET}
+      NODE_ENV: production
+    depends_on:
+      - postgres
+    restart: unless-stopped
+
+volumes:
+  postgres_data:

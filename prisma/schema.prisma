@@ -1,0 +1,330 @@
+// Apthal - Eye Clinic SaaS
+// Multi-tenant, HIPAA-compliant schema
+// All tables scoped by clinicId (row-level tenancy)
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+// ─── TENANT ───────────────────────────────────────────────────────────────────
+
+model Clinic {
+  id        String   @id @default(cuid())
+  name      String
+  address   String?
+  phone     String?
+  email     String?
+  isActive  Boolean  @default(true)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  users          User[]
+  patients       Patient[]
+  medicines      Medicine[]
+  visits         Visit[]
+  patientRecords PatientRecord[]
+  auditLogs      AuditLog[]
+
+  @@map("clinics")
+}
+
+// ─── AUTH & USERS ─────────────────────────────────────────────────────────────
+
+model User {
+  id           String    @id @default(cuid())
+  clinicId     String
+  email        String    @unique
+  passwordHash String
+  name         String
+  role         Role
+  isActive     Boolean   @default(true)
+  mfaEnabled   Boolean   @default(false)
+  mfaSecret    String?
+  lastLoginAt  DateTime?
+  createdAt    DateTime  @default(now())
+  updatedAt    DateTime  @updatedAt
+
+  clinic    Clinic     @relation(fields: [clinicId], references: [id])
+  auditLogs AuditLog[]
+
+  @@index([clinicId])
+  @@map("users")
+}
+
+enum Role {
+  ADMIN
+  DOCTOR
+  RECEPTIONIST
+  PHARMACIST
+}
+
+// ─── PATIENTS ─────────────────────────────────────────────────────────────────
+
+model Patient {
+  id          String   @id @default(cuid())
+  clinicId    String
+  patientCode String   // auto-generated (e.g. PT-00042), used in URLs — no PHI
+  firstName   String
+  lastName    String
+  dateOfBirth DateTime
+  gender      String
+  phone       String?
+  email       String?
+  address     String?
+  bloodGroup  String?
+  allergies   String?
+  notes       String?
+  isActive    Boolean  @default(true)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  clinic         Clinic          @relation(fields: [clinicId], references: [id])
+  visits         Visit[]
+  patientRecords PatientRecord[]
+
+  @@unique([clinicId, patientCode])
+  @@index([clinicId])
+  @@map("patients")
+}
+
+// ─── VISITS (Front Desk) ──────────────────────────────────────────────────────
+
+model Visit {
+  id             String        @id @default(cuid())
+  clinicId       String
+  patientId      String
+  visitDate      DateTime      @default(now())
+  chiefComplaint String?
+  status         VisitStatus   @default(CHECKED_IN)
+  totalAmount    Decimal       @default(0) @db.Decimal(10, 2)
+  paidAmount     Decimal       @default(0) @db.Decimal(10, 2)
+  paymentStatus  PaymentStatus @default(PENDING)
+  createdAt      DateTime      @default(now())
+  updatedAt      DateTime      @updatedAt
+
+  clinic           Clinic            @relation(fields: [clinicId], references: [id])
+  patient          Patient           @relation(fields: [patientId], references: [id])
+  dischargeSummary DischargeSummary?
+  billingItems     BillingItem[]
+  dispensings      Dispensing[]
+
+  @@index([clinicId])
+  @@index([patientId])
+  @@map("visits")
+}
+
+enum VisitStatus {
+  CHECKED_IN
+  WITH_DOCTOR
+  DISCHARGED
+  CANCELLED
+}
+
+enum PaymentStatus {
+  PENDING
+  PARTIAL
+  PAID
+}
+
+// ─── BILLING ──────────────────────────────────────────────────────────────────
+
+model BillingItem {
+  id          String          @id @default(cuid())
+  visitId     String
+  description String
+  amount      Decimal         @db.Decimal(10, 2)
+  category    BillingCategory
+  createdAt   DateTime        @default(now())
+
+  visit Visit @relation(fields: [visitId], references: [id])
+
+  @@index([visitId])
+  @@map("billing_items")
+}
+
+enum BillingCategory {
+  CONSULTATION
+  MEDICINE
+  PROCEDURE
+  TEST
+  OTHER
+}
+
+// ─── DISCHARGE SUMMARY (Eye Doctor) ──────────────────────────────────────────
+
+model DischargeSummary {
+  id        String @id @default(cuid())
+  clinicId  String
+  visitId   String @unique
+  patientId String
+  doctorId  String
+
+  // Visual Acuity
+  rightEyeVisionUncorrected String?
+  leftEyeVisionUncorrected  String?
+  rightEyeVisionCorrected   String?
+  leftEyeVisionCorrected    String?
+
+  // Intraocular Pressure (mmHg)
+  rightEyeIOP Float?
+  leftEyeIOP  Float?
+
+  // Refraction
+  rightSphere   Float?
+  rightCylinder Float?
+  rightAxis     Int?
+  leftSphere    Float?
+  leftCylinder  Float?
+  leftAxis      Int?
+  addPower      Float?
+
+  // Slit Lamp Examination
+  slitLampRightEye String?
+  slitLampLeftEye  String?
+
+  // Fundus Examination
+  fundusRightEye String?
+  fundusLeftEye  String?
+
+  // Other Eye Exams
+  colorVision    String?
+  fieldOfVision  String?
+  ocularMotility String?
+
+  // Diagnosis & Management
+  diagnosis    String?
+  treatment    String?
+  procedure    String?
+  advice       String?
+  followUpDate DateTime?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  visit         Visit          @relation(fields: [visitId], references: [id])
+  prescriptions Prescription[]
+
+  @@index([clinicId])
+  @@map("discharge_summaries")
+}
+
+// ─── PRESCRIPTIONS ───────────────────────────────────────────────────────────
+
+model Prescription {
+  id                 String  @id @default(cuid())
+  dischargeSummaryId String
+  medicineId         String
+  dosage             String
+  frequency          String
+  duration           String
+  route              String? // Oral, Topical (eye drops), etc.
+  instructions       String?
+
+  dischargeSummary DischargeSummary @relation(fields: [dischargeSummaryId], references: [id])
+  medicine         Medicine         @relation(fields: [medicineId], references: [id])
+
+  @@map("prescriptions")
+}
+
+// ─── PHARMACY INVENTORY ───────────────────────────────────────────────────────
+
+model Medicine {
+  id           String    @id @default(cuid())
+  clinicId     String
+  name         String
+  genericName  String?
+  category     String?   // Eye Drops, Oral, Injection, Ointment, etc.
+  unit         String    // tablets, ml, drops, vial
+  quantity     Int       @default(0)
+  reorderLevel Int       @default(10)
+  unitPrice    Decimal   @default(0) @db.Decimal(10, 2)
+  batchNumber  String?
+  manufacturer String?
+  expiryDate   DateTime?
+  isActive     Boolean   @default(true)
+  createdAt    DateTime  @default(now())
+  updatedAt    DateTime  @updatedAt
+
+  clinic        Clinic         @relation(fields: [clinicId], references: [id])
+  prescriptions Prescription[]
+  dispensings   Dispensing[]
+
+  @@index([clinicId])
+  @@map("medicines")
+}
+
+model Dispensing {
+  id          String   @id @default(cuid())
+  clinicId    String
+  visitId     String
+  medicineId  String
+  quantity    Int
+  dispensedAt DateTime @default(now())
+  dispensedBy String   // userId
+
+  visit    Visit    @relation(fields: [visitId], references: [id])
+  medicine Medicine @relation(fields: [medicineId], references: [id])
+
+  @@index([clinicId])
+  @@map("dispensings")
+}
+
+// ─── PATIENT RECORDS (Images & Documents) ────────────────────────────────────
+
+model PatientRecord {
+  id         String   @id @default(cuid())
+  clinicId   String
+  patientId  String
+  visitId    String?
+  recordType String   // XRAY, ULTRASOUND, OCT, FUNDUS_PHOTO, REPORT, NOTE
+  title      String
+  s3Key      String   // S3 object key — NEVER exposed directly in URLs
+  fileType   String   // MIME type: image/jpeg, application/pdf, etc.
+  fileSize   Int      // bytes
+  uploadedBy String   // userId
+  uploadedAt DateTime @default(now())
+
+  clinic  Clinic  @relation(fields: [clinicId], references: [id])
+  patient Patient @relation(fields: [patientId], references: [id])
+
+  @@index([clinicId])
+  @@index([patientId])
+  @@map("patient_records")
+}
+
+// ─── AUDIT LOG (HIPAA required) ───────────────────────────────────────────────
+
+model AuditLog {
+  id         String      @id @default(cuid())
+  clinicId   String
+  userId     String?
+  action     AuditAction
+  resource   String      // Patient, Medicine, DischargeSummary, etc.
+  resourceId String?
+  ipAddress  String?
+  userAgent  String?
+  details    String?     // JSON string — NO raw PHI stored here
+  timestamp  DateTime    @default(now())
+
+  clinic Clinic @relation(fields: [clinicId], references: [id])
+  user   User?  @relation(fields: [userId], references: [id])
+
+  @@index([clinicId])
+  @@index([timestamp])
+  @@map("audit_logs")
+}
+
+enum AuditAction {
+  CREATE
+  READ
+  UPDATE
+  DELETE
+  LOGIN
+  LOGOUT
+  EXPORT
+  UPLOAD
+}
