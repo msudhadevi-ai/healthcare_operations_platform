@@ -1,10 +1,10 @@
-import jwt from "jsonwebtoken";
+import { SignJWT, jwtVerify } from "jose";
 import bcrypt from "bcryptjs";
 import { cookies } from "next/headers";
 import type { JwtPayload } from "@/types";
 
-const JWT_SECRET = process.env.JWT_SECRET!;
-const JWT_EXPIRES_IN = "8h"; // Auto session timeout — HIPAA requirement
+const JWT_SECRET = new TextEncoder().encode(process.env.JWT_SECRET!);
+const JWT_EXPIRES_IN = "8h";
 const COOKIE_NAME = "apthal_session";
 
 export async function hashPassword(password: string): Promise<string> {
@@ -15,13 +15,18 @@ export async function verifyPassword(password: string, hash: string): Promise<bo
   return bcrypt.compare(password, hash);
 }
 
-export function signToken(payload: JwtPayload): string {
-  return jwt.sign(payload, JWT_SECRET, { expiresIn: JWT_EXPIRES_IN });
+export async function signToken(payload: JwtPayload): Promise<string> {
+  return new SignJWT({ ...payload })
+    .setProtectedHeader({ alg: "HS256" })
+    .setIssuedAt()
+    .setExpirationTime(JWT_EXPIRES_IN)
+    .sign(JWT_SECRET);
 }
 
-export function verifyToken(token: string): JwtPayload | null {
+export async function verifyToken(token: string): Promise<JwtPayload | null> {
   try {
-    return jwt.verify(token, JWT_SECRET) as JwtPayload;
+    const { payload } = await jwtVerify(token, JWT_SECRET);
+    return payload as unknown as JwtPayload;
   } catch {
     return null;
   }
@@ -37,10 +42,10 @@ export async function getSession(): Promise<JwtPayload | null> {
 export function getSessionCookieOptions() {
   return {
     name: COOKIE_NAME,
-    httpOnly: true,         // Prevents JS access — XSS protection
+    httpOnly: true,
     secure: process.env.NODE_ENV === "production",
     sameSite: "lax" as const,
-    maxAge: 60 * 60 * 8,   // 8 hours in seconds
+    maxAge: 60 * 60 * 8,
     path: "/",
   };
 }

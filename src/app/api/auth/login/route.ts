@@ -53,7 +53,7 @@ export async function POST(request: Request) {
       );
     }
 
-    const token = signToken({
+    const token = await signToken({
       userId: user.id,
       clinicId: user.clinicId,
       role: user.role,

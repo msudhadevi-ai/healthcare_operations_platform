@@ -4,15 +4,13 @@ import { verifyToken } from "@/lib/auth";
 
 const PUBLIC_PATHS = ["/login", "/api/auth/login"];
 
-export function middleware(request: NextRequest) {
+export async function middleware(request: NextRequest) {
   const { pathname } = request.nextUrl;
 
-  // Allow public routes
   if (PUBLIC_PATHS.some((p) => pathname.startsWith(p))) {
     return NextResponse.next();
   }
 
-  // Check session cookie
   const token = request.cookies.get("apthal_session")?.value;
   if (!token) {
     if (pathname.startsWith("/api/")) {
@@ -21,7 +19,7 @@ export function middleware(request: NextRequest) {
     return NextResponse.redirect(new URL("/login", request.url));
   }
 
-  const payload = verifyToken(token);
+  const payload = await verifyToken(token);
   if (!payload) {
     if (pathname.startsWith("/api/")) {
       return NextResponse.json({ success: false, error: "Session expired" }, { status: 401 });
@@ -31,7 +29,6 @@ export function middleware(request: NextRequest) {
     return response;
   }
 
-  // Forward user context to API routes via headers (no PHI)
   const requestHeaders = new Headers(request.headers);
   requestHeaders.set("x-user-id", payload.userId);
   requestHeaders.set("x-clinic-id", payload.clinicId);
