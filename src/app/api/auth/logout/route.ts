@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import { cookies } from "next/headers";
 import { writeAuditLog, getRequestMeta } from "@/lib/audit";
 
 export async function POST(request: Request) {
@@ -17,7 +18,8 @@ export async function POST(request: Request) {
     });
   }
 
-  const response = NextResponse.json({ success: true });
-  response.cookies.delete("apthal_session");
-  return response;
+  const cookieStore = await cookies();
+  cookieStore.delete("apthal_session");
+
+  return NextResponse.json({ success: true });
 }

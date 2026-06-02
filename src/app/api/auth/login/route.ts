@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import { cookies } from "next/headers";
 import { z } from "zod";
 import { prisma } from "@/lib/prisma";
 import { verifyPassword, signToken, getSessionCookieOptions } from "@/lib/auth";
@@ -36,7 +37,7 @@ export async function POST(request: Request) {
       },
     });
 
-    // Generic error message — do not reveal if email exists (HIPAA/security best practice)
+    // Generic error — do not reveal whether email exists (HIPAA/security best practice)
     if (!user || !user.isActive) {
       return NextResponse.json(
         { success: false, error: "Invalid credentials" },
@@ -59,7 +60,6 @@ export async function POST(request: Request) {
       email: user.email,
     });
 
-    // Update last login
     await prisma.user.update({
       where: { id: user.id },
       data: { lastLoginAt: new Date() },
@@ -75,14 +75,15 @@ export async function POST(request: Request) {
       ...meta,
     });
 
-    const cookieOptions = getSessionCookieOptions();
-    const response = NextResponse.json({
+    // Use next/headers cookies() — reliable in Next.js 15 Route Handlers
+    const { name, ...options } = getSessionCookieOptions();
+    const cookieStore = await cookies();
+    cookieStore.set(name, token, options);
+
+    return NextResponse.json({
       success: true,
       data: { name: user.name, role: user.role, clinicId: user.clinicId },
     });
-
-    response.cookies.set(cookieOptions.name, token, cookieOptions);
-    return response;
   } catch (error) {
     console.error("[LOGIN]", error);
     return NextResponse.json({ success: false, error: "Internal server error" }, { status: 500 });
